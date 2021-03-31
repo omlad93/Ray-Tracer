@@ -30,34 +30,52 @@ def parse_scene(input_file_name):
 
     file = open(input_file_name, 'r')
     lines = [line.split() for line in file.readlines() if len(line.replace("\n", "")) > 0 and line[0] != '#']
-    j = 1
+    i, j, k, = 1, 1, 1
+
     for line in lines:
         # print(line)
         if line[0] == 'cam':
-            print('parsing camera settings...')
+            # print('parsing camera settings...')
             camera = Camera(line[1:])
+            fisheye, fishfactor = camera.fish_eye, camera.k
         elif line[0] == 'set':
-            print('parsing set...')
+            # print('parsing set...')
             scene_set = Set(line[1:])
         elif line[0] == 'mtl':
-            print(f'parsing material #{j}')
+            # print(f'parsing material #{j}')
             materials[j] = Material(j, line[1:])
             j += 1
         elif line[0] == 'lgt':
+            # print(f'parsing object #{i}')
             lights.append(Light(line[1:]))
+            i += 1
         elif line[0] == 'sph':
+            # print(f'parsing object #{k}')
             spheres.append(Sphere(line[1:], materials))
+            k += 1
         elif line[0] == 'pln':
+            # print(f'parsing object #{k}')
             planes.append((Plane(line[1:], materials)))
+            k += 1
         elif line[0] == 'box':
+            # print(f'parsing object #{k}')
             boxes.append(Box(line[1:], materials))
+            k += 1
     shapes = {'spheres': spheres, 'planes': planes, 'boxes': boxes}
+    print(f'Scene \'{input_file_name}\' is Parsed:\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
+    fish_description = f'\t> Fish Eye effect enabled with k={k}' if fisheye else '\t> Fish Eye effect disabled'
+    print(fish_description)
+
+    scene = Scene(scene_set, camera, shapes, lights)
+    scene.produce_screen()
+    return scene
+
 
 
 def main():
-    linalg.normalize(np.array([float('inf'), 2, 3, float('inf'), 5]))
 
     input_file_name, out_name, width, hight = parse_args(sys.argv[1:])
+    print(f'Screen size {width}x{hight}')
     parse_scene(input_file_name)
 
 

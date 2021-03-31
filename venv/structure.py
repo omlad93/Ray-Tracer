@@ -24,9 +24,8 @@ class Material:
 class Camera:
     def __init__(self, cam_args):
         self.position = np.array(list(map(float, cam_args[0:3])))
-        look_at_point = np.array(list(map(float, cam_args[3:6])))
-        self.look_at_vector = linalg.normalize(np.subtract(look_at_point, self.position))
-        self.up_vector = np.array(list(map(float, cam_args[6:9])))
+        self.look_at_vector = linalg.normalize(np.subtract(np.array(list(map(float, cam_args[3:6]))), self.position))
+        self.up_vector = linalg.normalize(np.array(list(map(float, cam_args[6:9]))))
         self.screen_dist = float(cam_args[9])
         self.screen_width = float(cam_args[10])
         if len(cam_args) == 11:
@@ -72,12 +71,18 @@ class Set:
         self.recursion_depth = set_args[4]
 
 
-class Scene:
-    general: Set
-    camera: Camera
-    shapes: dict
-    lights: Light
-    screen: Screen
+# TODO
 
-    def __init__(self, camera, shapes, ):
+
+class Scene:
+
+    def produce_screen(self):
+        self.screen = None
+
+    def __init__(self, scene_set, camera, shapes_dict, light_list ):
+        self.general = scene_set
+        self.camera = camera
+        self.shapes = shapes_dict
+        self.lights = light_list
+        self.screen = None
         pass
