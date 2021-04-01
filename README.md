@@ -27,5 +27,7 @@
         self.hight          :   hight of screen
         self.pixel_centers  :   a list of lists of np.arrays represing pixels center points
         self.pixel_rays     :   a list of lists of np.arrays represing rays through pixels
-                                indexing is matching self.pixel_centers 
+                                indexing is matching self.pixel_centers
+        self.hits           :   a list of list of tuples(np.array , shape) of rays hits for pixel
+        self.colors         :   a ist of lists of colors of pixels   
         

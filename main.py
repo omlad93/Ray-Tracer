@@ -2,6 +2,7 @@ from structure import Camera, Scene_Set, Material, Light, Sphere, Plane, Box, Sc
 import sys
 import time
 
+
 def parse_args(args):
     assert (2 <= len(args) <= 4)
     in_file = args[0]
@@ -62,21 +63,21 @@ def parse_scene(input_file_name, dimensions):
     fish_description = f'\t> Fish Eye effect enabled with k={k}' if fisheye else '\t> Fish Eye effect disabled'
     print(fish_description)
 
-    scene = Scene(scene_set, camera, shapes, lights, dimensions)
+    scene = Scene(scene_set, camera, shapes, lights, dimensions, input_file_name)
     return scene
 
 
 def main():
+    hit_file = open('hits.txt', 'w')
     clk = time.time()
     input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
     scene = parse_scene(input_file_name, dimensions)
-    scene.calculate_hits()
     clk = time.time() - clk
+    print(scene.screen.pixel_hits, file=hit_file)
     print(f'\nRay-Tracer.py() has finished running after {clk:.2f}s')
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     main()
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
