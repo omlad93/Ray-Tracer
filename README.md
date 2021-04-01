@@ -1,6 +1,8 @@
 # Ray-Tracer
     Creating a png file from txt file describing a scene
     All Data-Structures are implemented in structure.py
+    Linear Algebra opreations are implentef in linalg.py (if not supported by numpy)
+    Main rutine functions are implented in main.py
     
 
 # Class Scene

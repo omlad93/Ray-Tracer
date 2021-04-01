@@ -87,7 +87,7 @@ class Screen:
             current_pixels_row = []
             current_ray_row = []
             for j in range(dimensions[1]):  # for each column
-                current_pixel_center = bottom_left_center + j * dx + i * dy
+                current_pixel_center = bottom_left_pixel_center + j * dx + i * dy
                 current_pixel_ray = linalg.normalize(current_pixel_center - scene.camera.position)
                 current_pixels_row.append((current_pixel_center))
                 current_ray_row.append(current_pixel_ray)

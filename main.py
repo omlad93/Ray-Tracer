@@ -1,9 +1,6 @@
-import numpy as np
-import structure
 from structure import Camera, Scene_Set, Material, Light, Sphere, Plane, Box, Scene
 import sys
-import linalg
-
+import time
 
 def parse_args(args):
     assert (2 <= len(args) <= 4)
@@ -69,11 +66,13 @@ def parse_scene(input_file_name, dimensions):
 
 
 def main():
+    clk = time.time()
     input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
     scene = parse_scene(input_file_name, dimensions)
 
-
+    clk = time.time() - clk
+    print(f'Ray-Tracer.py() has finished running after {clk}s')
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
