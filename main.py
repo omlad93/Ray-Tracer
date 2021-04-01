@@ -10,18 +10,16 @@ def parse_args(args):
     in_file = args[0]
     out_file = args[1]
     if len(args) == 2:
-        width, hight = 500, 500
+        dimensions = (500, 500)
     elif len(args) == 3:
-        width = args[2]
-        hight = 500
+        dimensions = (int(args[2]), 500)
     else:
-        width = args[2]
-        hight = args[3]
+        dimensions = (int(args[2]), int(args[3]))
     # print(f'in_file: {in_file}\nout_file: {out_file}\nw: {width} , h: {hight}')
-    return in_file, out_file, width, hight
+    return in_file, out_file, dimensions
 
 
-def parse_scene(input_file_name):
+def parse_scene(input_file_name, dimensions):
     materials = {}
     spheres = []
     boxes = []
@@ -62,21 +60,18 @@ def parse_scene(input_file_name):
             boxes.append(Box(line[1:], materials))
             k += 1
     shapes = {'spheres': spheres, 'planes': planes, 'boxes': boxes}
-    print(f'Scene \'{input_file_name}\' is Parsed:\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
+    print(f'Parsing Scene \'{input_file_name}\':\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
     fish_description = f'\t> Fish Eye effect enabled with k={k}' if fisheye else '\t> Fish Eye effect disabled'
     print(fish_description)
 
-    scene = Scene(scene_set, camera, shapes, lights)
-    scene.produce_screen()
+    scene = Scene(scene_set, camera, shapes, lights, dimensions)
     return scene
 
 
-
 def main():
-
-    input_file_name, out_name, width, hight = parse_args(sys.argv[1:])
-    print(f'Screen size {width}x{hight}')
-    parse_scene(input_file_name)
+    input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
+    print(f'Screen size {dimensions[0]}x{dimensions[1]}')
+    parse_scene(input_file_name, dimensions)
 
 
 # Press the green button in the gutter to run the script.

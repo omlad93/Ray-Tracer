@@ -1,5 +1,6 @@
 import numpy as np
 import linalg
+import time
 
 
 class Light:
@@ -24,22 +25,17 @@ class Material:
 class Camera:
     def __init__(self, cam_args):
         self.position = np.array(list(map(float, cam_args[0:3])))
-        self.look_at_vector = linalg.normalize(np.subtract(np.array(list(map(float, cam_args[3:6]))), self.position))
+        self.towards_vector = linalg.normalize(np.subtract(np.array(list(map(float, cam_args[3:6]))), self.position))
         self.up_vector = linalg.normalize(np.array(list(map(float, cam_args[6:9]))))
         self.screen_dist = float(cam_args[9])
         self.screen_width = float(cam_args[10])
+        self.right_vector = linalg.normalize(np.cross(self.up_vector, self.towards_vector))
         if len(cam_args) == 11:
             self.fish_eye, self.k = False, 0.5
         elif len(cam_args) == 12:
             self.fish_eye, self.k = cam_args[11], 0.5
         elif len(cam_args) == 13:
             self.fish_eye, self.k = cam_args[11], float(cam_args[12])
-
-
-class Screen:
-    def __init__(self, cam_pos, up, look_at, dist, width=500, height=500):
-        camera = cam_pos
-        pixels = get_pixels(cam_pos, up, look_at, dist, width, height)
 
 
 class Sphere:
@@ -72,17 +68,42 @@ class Set:
 
 
 # TODO
+class Screen:
+    def __init__(self, scene, dimensions, delta=1):
+        self.Z = scene.camera.towards_vector  # Z Axis
+        self.X = scene.camera.right_vector  # X Axis
+        self.Y = scene.camera.up_vector  # Y Axis
+        self.X_pixels = dimensions[0]
+        self.Y_pixels = dimensions[1]
+        self.pixel_size = scene.camera.screen_width / dimensions[0]
+        self.width = scene.camera.screen_width
+        self.hight = self.pixel_size * self.Y_pixels
+        dx = 0.5 * self.pixel_size * self.X
+        dy = 0.5 * self.pixel_size * self.Y
+        screen_center = scene.camera.position + scene.camera.screen_dist * scene.camera.towards_vector
+        bottom_left_center = screen_center + 0.5 * (-1 * self.width * self.X - 1 * self.hight * self.Y + dx + dy)
+        self.pixel_centers , self.pixel_rays = [] , []
+        for i in range(dimensions[0]):  # for each row
+            current_pixels_row = []
+            current_ray_row = []
+            for j in range(dimensions[1]):  # for each column
+                current_pixel_center = bottom_left_center + j * dx + i * dy
+                current_pixel_ray = linalg.normalize(current_pixel_center - scene.camera.position)
+                current_pixels_row.append((current_pixel_center))
+                current_ray_row.append(current_pixel_ray)
+            self.pixel_centers.append(current_pixels_row)
+            self.pixel_rays.append(current_ray_row)
 
 
 class Scene:
 
-    def produce_screen(self):
-        self.screen = None
-
-    def __init__(self, scene_set, camera, shapes_dict, light_list ):
+    def __init__(self, scene_set, camera, shapes_dict, light_list, dimensions, ):
+        clk = time.time()
         self.general = scene_set
         self.camera = camera
         self.shapes = shapes_dict
         self.lights = light_list
-        self.screen = None
-        pass
+        self.screen = Screen(scene=self, dimensions=dimensions)
+        clk = time.time() - clk
+        print(f'Scene is Ready for Compute - Screen genration took {clk:.2f}s')
+
