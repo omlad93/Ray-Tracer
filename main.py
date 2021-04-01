@@ -56,6 +56,7 @@ def parse_scene(input_file_name, dimensions):
             # print(f'parsing object #{k}')
             boxes.append(Box(line[1:], materials))
             k += 1
+
     shapes = {'spheres': spheres, 'planes': planes, 'boxes': boxes}
     print(f'Parsing Scene \'{input_file_name}\':\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
     fish_description = f'\t> Fish Eye effect enabled with k={k}' if fisheye else '\t> Fish Eye effect disabled'
@@ -70,9 +71,9 @@ def main():
     input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
     scene = parse_scene(input_file_name, dimensions)
-
+    scene.calculate_hits()
     clk = time.time() - clk
-    print(f'Ray-Tracer.py() has finished running after {clk}s')
+    print(f'\nRay-Tracer.py() has finished running after {clk:.2f}s')
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
