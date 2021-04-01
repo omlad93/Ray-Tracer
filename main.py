@@ -13,7 +13,6 @@ def parse_args(args):
         dimensions = (int(args[2]), 500)
     else:
         dimensions = (int(args[2]), int(args[3]))
-    # print(f'in_file: {in_file}\nout_file: {out_file}\nw: {width} , h: {hight}')
     return in_file, out_file, dimensions
 
 
@@ -33,7 +32,7 @@ def parse_scene(input_file_name, dimensions):
         if line[0] == 'cam':
             # print('parsing camera settings...')
             camera = Camera(line[1:])
-            fisheye, fishfactor = camera.fish_eye, camera.k
+            fisheye, fish_factor = camera.fish_eye, camera.k
         elif line[0] == 'set':
             # print('parsing set...')
             scene_set = Scene_Set(line[1:])
@@ -59,8 +58,8 @@ def parse_scene(input_file_name, dimensions):
             k += 1
 
     shapes = {'spheres': spheres, 'planes': planes, 'boxes': boxes}
-    print(f'Parsing Scene \'{input_file_name}\':\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
-    fish_description = f'\t> Fish Eye effect enabled with k={k}' if fisheye else '\t> Fish Eye effect disabled'
+    print(f'Parsing Scene from \'{input_file_name}\':\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
+    fish_description = f'\t> Fish Eye effect enabled with k={fish_factor}' if fisheye else '\t> Fish Eye effect disabled'
     print(fish_description)
 
     scene = Scene(scene_set, camera, shapes, lights, dimensions, input_file_name)

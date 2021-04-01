@@ -29,5 +29,5 @@
         self.pixel_rays     :   a list of lists of np.arrays represing rays through pixels
                                 indexing is matching self.pixel_centers
         self.hits           :   a list of list of tuples(np.array , shape) of rays hits for pixel
-        self.colors         :   a ist of lists of colors of pixels   
+        self.colors         :   a list of lists of RGB vectors (np.arrays) of pixels   
         

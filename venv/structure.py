@@ -195,7 +195,7 @@ class Screen:
             self.pixel_rays.append(row_rays)
             self.pixel_hits.append(row_hits)
             self.pixel_colors.append(row_colors)
-        print(f'Finished Calculating Screen')
+        print(f'{self} is up and complete')
 
     def __str__(self):
         return self.name
@@ -213,7 +213,6 @@ class Scene:
         self.shapes = shapes_dict
         self.lights = light_list
         self.screen = Screen(scene=self, dimensions=dimensions)
-        print(f'Scene {self} is Ready for Compute')
 
     def __str__(self):
         return self.name
