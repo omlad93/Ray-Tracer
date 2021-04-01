@@ -60,7 +60,7 @@ class Plane:
         self.material = material_mapping[int(pln_args[4])]
 
 
-class Set:
+class Scene_Set:
     def __init__(self, set_args):
         self.backround_color = np.array(set_args[0:3])  # RGB
         self.shadow_n = set_args[3]
@@ -78,10 +78,10 @@ class Screen:
         self.pixel_size = scene.camera.screen_width / dimensions[0]
         self.width = scene.camera.screen_width
         self.hight = self.pixel_size * self.Y_pixels
-        dx = 0.5 * self.pixel_size * self.X
-        dy = 0.5 * self.pixel_size * self.Y
+        dx = self.pixel_size * self.X # a pixel-sized step on X axis
+        dy = self.pixel_size * self.Y # a pixel-sized step on Y axis
         screen_center = scene.camera.position + scene.camera.screen_dist * scene.camera.towards_vector
-        bottom_left_center = screen_center + 0.5 * (-1 * self.width * self.X - 1 * self.hight * self.Y + dx + dy)
+        bottom_left_pixel_center = screen_center - 0.5 * ((self.width-self.pixel_size) * self.X + (self.hight-self.pixel_size) * self.Y)
         self.pixel_centers , self.pixel_rays = [] , []
         for i in range(dimensions[0]):  # for each row
             current_pixels_row = []

@@ -1,6 +1,6 @@
 import numpy as np
 import structure
-from structure import Camera, Set, Material, Light, Sphere, Plane, Box, Scene
+from structure import Camera, Scene_Set, Material, Light, Sphere, Plane, Box, Scene
 import sys
 import linalg
 
@@ -38,7 +38,7 @@ def parse_scene(input_file_name, dimensions):
             fisheye, fishfactor = camera.fish_eye, camera.k
         elif line[0] == 'set':
             # print('parsing set...')
-            scene_set = Set(line[1:])
+            scene_set = Scene_Set(line[1:])
         elif line[0] == 'mtl':
             # print(f'parsing material #{j}')
             materials[j] = Material(j, line[1:])
@@ -71,7 +71,8 @@ def parse_scene(input_file_name, dimensions):
 def main():
     input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
-    parse_scene(input_file_name, dimensions)
+    scene = parse_scene(input_file_name, dimensions)
+
 
 
 # Press the green button in the gutter to run the script.
