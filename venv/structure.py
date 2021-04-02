@@ -12,17 +12,23 @@ class Light:
     _idx = count(1)
 
     def __init__(self, light_args):
-        self.name = 'Light ' +str(next(self._idx))
+        self.name = 'Light(' + str(next(self._idx)) + ')'
         self.position = np.array(list(map(float, light_args[0:3])))
         self.color = np.array(list(map(float, light_args[3:6])))  # RGB
         self.specular_inetnsity = float(light_args[6])
         self.shadow_intesity = float(light_args[7])
         self.radius = float(light_args[8])
 
+    def __str__(self):
+        return name
+
+    def __repr__(self):
+        return self.name
+
 
 class Material:
     def __init__(self, index, mat_args):
-        self.name = 'Material ' + str(index)
+        self.name = 'Material(' + str(index) + ')'
         self.index = index
         self.diffuse_color = np.array(list(map(float, mat_args[0:3])))
         self.specular_color = np.array(list(map(float, mat_args[3:6])))
@@ -34,7 +40,7 @@ class Material:
         return name
 
     def __repr__(self):
-        return 'Class.Material.' + self.name
+        return self.name
 
 
 class Camera:
@@ -63,10 +69,18 @@ class Sphere:
         self.material = material_mapping[int(sphr_args[4])]
 
     def intersect(self, lo, ray):
+        """
+        ray-Sphere intersection algorithem: ray is represented as lo + t*ray
+        we assume there is a t such l0 + t*ray is intersecting with ray
+        we get the formula for intersection and find roots
+        if roots are positive we take minimum. if no postive root or no roots we declare miss
+        The equation we recieve is the following equation:
+        (ray^2)t^2 + 2(ray*(lo-center))*t + ((lo-center)*(lo-center) - offset)
+        """
         help_vec = np.subtract(lo, self.center)
         a = sum(np.multiply(ray, ray))
         b = 2 * sum(np.multiply(ray, help_vec))
-        c = sum(np.multiply(help_vec, help_vec)) - self.radius**2
+        c = sum(np.multiply(help_vec, help_vec)) - self.radius ** 2
         discriminant = b ** 2 - 4 * a * c
         result = alg.find_roots(a, b, discriminant)
         if result[0] == alg.Intersection.THROUGH and result[1] > 0:
@@ -92,7 +106,7 @@ class Box:
     _idx = count(1)
 
     def __init__(self, box_args, material_mapping):
-        self.name = 'Box(' + str(next(self._idx)) +')'
+        self.name = 'Box(' + str(next(self._idx)) + ')'
         self.center = np.array(list(map(float, box_args[0:3])))
         self.edge_length = float(box_args[3])
         self.material = material_mapping[int(box_args[4])]
@@ -123,7 +137,16 @@ class Plane:
         return self.name
 
     def intersect(self, lo, ray):
-        po = self.offset * self.normal
+        """
+        ray-Plane intersection algorithem: ray is represented as lo + t*ray
+        if ray is not parralell to the plane we set po a point on the plane
+        we use po from the plane and p from the ray to find the t parameter for intersection
+        t = (po-l0)*n/(ray*n)
+
+        if ray is parralell to plane there are 2 options:
+            Miss - lo not on Plane
+            Unified - lo on Plane
+        """
         dot_product = sum(np.multiply(self.normal, ray))
         if dot_product == 0:  # paralel or miss
             if sum(np.multiply(lo, self.normal)) + self.offset == 0:
@@ -131,12 +154,14 @@ class Plane:
             else:
                 return (None, alg.INF, Intersection.MISS)
         else:
-            t = sum(np.multiply(np.subtract(po,lo),self.normal))/dot_product
-            if t>0:
+            po = self.offset * self.normal
+            t = sum(np.multiply(np.subtract(po, lo), self.normal)) / dot_product
+            if t > 0:
                 point = lo + t * ray
                 return (point, t, Intersection.THROUGH)
             else:
-                return  (None, alg.INF, Intersection.MISS)
+                return (None, alg.INF, Intersection.MISS)
+
 
 class Scene_Set:
     def __init__(self, set_args):
@@ -145,7 +170,6 @@ class Scene_Set:
         self.recursion_depth = set_args[4]
 
 
-# TODO
 class Screen:
     def __init__(self, scene, dimensions, delta=1):
         self.name = scene.name.replace('Scene', 'Screen')
@@ -182,7 +206,8 @@ class Screen:
                 row_hits.append(hit)
 
                 current_pixel_color = alg.get_color(point, current_pixel_ray, shape, scene.general.backround_color)
-                row_colors.append(np.array(list(map(int,255*current_pixel_color)))) #should be modified after Iris will give real color in return
+                row_colors.append(np.array(list(map(int,
+                                                    255 * current_pixel_color))))  # should be modified after Iris will give real color in return
 
             self.pixel_centers.append(row_pixels)
             self.pixel_rays.append(row_rays)
