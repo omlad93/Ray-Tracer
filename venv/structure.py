@@ -57,26 +57,16 @@ class Sphere:
     _idx = count(1)
 
     def __init__(self, sphr_args, material_mapping):
-        self.name = 'Sphere ' + str(next(self._idx))
+        self.name = 'Sphere(' + str(next(self._idx)) + ')'
         self.center = np.array(list(map(float, sphr_args[0:3])))
         self.radius = float(sphr_args[3])
         self.material = material_mapping[int(sphr_args[4])]
 
     def intersect(self, lo, ray):
-        # t = Delta
-        # while t < MAX_RAY:
-        #     point = lo + t * ray
-        #     sum_squares = sum(np.power(np.subtract(self.center, point), 2))
-        #     r2 = self.radius ** 2
-        #     if (sum_squares < r2):
-        #         return (point, t, Intersection.THROUGH)
-        #     elif (sum_squares == r2):
-        #         return (point, t, Intersection.TANGENT)
-        #     t += Delta
         help_vec = np.subtract(lo, self.center)
         a = sum(np.multiply(ray, ray))
         b = 2 * sum(np.multiply(ray, help_vec))
-        c = sum(np.multiply(ray, ray))
+        c = sum(np.multiply(help_vec, help_vec)) - self.radius**2
         discriminant = b ** 2 - 4 * a * c
         result = alg.find_roots(a, b, discriminant)
         if result[0] == alg.Intersection.THROUGH and result[1] > 0:
@@ -95,14 +85,14 @@ class Sphere:
         return name
 
     def __repr__(self):
-        return 'Class.Sphere.' + self.name
+        return self.name
 
 
 class Box:
     _idx = count(1)
 
     def __init__(self, box_args, material_mapping):
-        self.name = 'Box ' + str(next(self._idx))
+        self.name = 'Box(' + str(next(self._idx)) +')'
         self.center = np.array(list(map(float, box_args[0:3])))
         self.edge_length = float(box_args[3])
         self.material = material_mapping[int(box_args[4])]
@@ -114,36 +104,39 @@ class Box:
         return name
 
     def __repr__(self):
-        return 'Class.Box.' + self.name
+        return self.name
 
 
 class Plane:
     _idx = count(1)
 
     def __init__(self, pln_args, material_mapping):
-        self.name = 'Plane ' + str(next(self._idx))
-        self.normal = np.array(list(map(float, pln_args[0:3])))
+        self.name = 'Plane(' + str(next(self._idx)) + ')'
+        self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
         self.offset = float(pln_args[3])
         self.material = material_mapping[int(pln_args[4])]
 
     def __str__(self):
-        return name
+        return self.name
 
     def __repr__(self):
-        return 'Class.Plane.' + self.name
+        return self.name
 
     def intersect(self, lo, ray):
+        po = self.offset * self.normal
         dot_product = sum(np.multiply(self.normal, ray))
         if dot_product == 0:  # paralel or miss
             if sum(np.multiply(lo, self.normal)) + self.offset == 0:
                 return (lo, 0, Intersection.UNIFIED)
             else:
                 return (None, alg.INF, Intersection.MISS)
-        else:  # lets say po= (0,0,0)
-            t = sum(np.multiply(-1 * lo, self.normal)) / dot_product
-            point = lo + t * ray
-            return (point, t, Intersection.THROUGH)
-
+        else:
+            t = sum(np.multiply(np.subtract(po,lo),self.normal))/dot_product
+            if t>0:
+                point = lo + t * ray
+                return (point, t, Intersection.THROUGH)
+            else:
+                return  (None, alg.INF, Intersection.MISS)
 
 class Scene_Set:
     def __init__(self, set_args):
@@ -189,7 +182,7 @@ class Screen:
                 row_hits.append(hit)
 
                 current_pixel_color = alg.get_color(point, current_pixel_ray, shape, scene.general.backround_color)
-                row_colors.append(current_pixel_color)
+                row_colors.append(np.array(list(map(int,255*current_pixel_color)))) #should be modified after Iris will give real color in return
 
             self.pixel_centers.append(row_pixels)
             self.pixel_rays.append(row_rays)
