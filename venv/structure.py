@@ -15,12 +15,12 @@ class Light:
         self.name = 'Light(' + str(next(self._idx)) + ')'
         self.position = np.array(list(map(float, light_args[0:3])))
         self.color = np.array(list(map(float, light_args[3:6])))  # RGB
-        self.specular_inetnsity = float(light_args[6])
-        self.shadow_intesity = float(light_args[7])
+        self.specular_intensity = float(light_args[6])
+        self.shadow_intensity = float(light_args[7])
         self.radius = float(light_args[8])
 
     def __str__(self):
-        return name
+        return self.name
 
     def __repr__(self):
         return self.name
@@ -37,7 +37,7 @@ class Material:
         self.transparency = float(mat_args[10])
 
     def __str__(self):
-        return name
+        return self.name
 
     def __repr__(self):
         return self.name
@@ -95,8 +95,13 @@ class Sphere:
         else:
             return (None, alg.INF, alg.Intersection.MISS)
 
+    def get_normal(self, point):
+        normal = np.subtract(point, self.center)
+        normal = alg.normalize(normal)
+        return normal
+
     def __str__(self):
-        return name
+        return self.name
 
     def __repr__(self):
         return self.name
@@ -114,8 +119,11 @@ class Box:
     def intersect(self, point):
         return (None, alg.INF, Intersection.MISS)
 
+    def get_normal(self, point):
+        return self.center  # FIXME
+
     def __str__(self):
-        return name
+        return self.name
 
     def __repr__(self):
         return self.name
@@ -135,6 +143,9 @@ class Plane:
 
     def __repr__(self):
         return self.name
+
+    def get_normal(self, point):
+        return self.normal
 
     def intersect(self, lo, ray):
         """
@@ -165,9 +176,9 @@ class Plane:
 
 class Scene_Set:
     def __init__(self, set_args):
-        self.backround_color = np.array(set_args[0:3])  # RGB
-        self.shadow_n = set_args[3]
-        self.recursion_depth = set_args[4]
+        self.background_color = np.array(list(map(float, set_args[0:3])))  # RGB
+        self.shadow_n = int(set_args[3])
+        self.recursion_depth = int(set_args[4])
 
 
 class Screen:
@@ -205,7 +216,11 @@ class Screen:
                 hit = (point, shape)
                 row_hits.append(hit)
 
-                current_pixel_color = alg.get_color(point, current_pixel_ray, shape, scene.general.backround_color)
+                current_pixel_color = alg.get_color(point, current_pixel_ray, shape, scene.shapes,
+                                                    scene.general.background_color, scene.lights,
+                                                    scene.general.recursion_depth)
+                #current_pixel_color = current_pixel_color * alg.get_light_intensity(scene.lights, point,
+                 #                                                                   current_pixel_ray, shape)
                 row_colors.append(np.array(list(map(int,
                                                     255 * current_pixel_color))))  # should be modified after Iris will give real color in return
 
@@ -220,6 +235,22 @@ class Screen:
 
     def __repr__(self):
         return 'Class.Screen.' + self.name
+
+
+class Grid:
+    def __init__(self, light, n, plane):
+        self.axis_U = plane[0]
+        self.axis_V = plane[1]
+        self.num_of_cells = n
+        self.center = light.position
+        self.width = light.radius
+        self.cell_size = self.width / self.num_of_cells
+        self.du = self.cell_size * self.axis_U
+        self.dv = self.cell_size * self.axis_V
+        self.bottom_left_point = np.array(self.center - 0.5*(self.width*self.self.axis_U + self.width*self.axis_V))
+
+    def __str__(self):
+        return self.name
 
 
 class Scene:
