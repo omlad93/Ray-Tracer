@@ -65,36 +65,32 @@ def calc_r(vector, normal):
     return r
 
 
-def single_light_diffuse_intensity(k, light_direction, normal):
-    return k * np.dot(light_direction, normal)
+def single_light_diffuse_intensity(k, i, light_direction, normal):
+    return i * k * abs(np.dot(light_direction, normal))
 
 
-def single_light_specular_intensity(k, i, light_reflection, camera_ray, n):
-    return k * i * np.power(np.dot(light_reflection, camera_ray * (-1)), n)
+def single_light_specular_intensity(light, i, light_reflection, camera_ray, n):
+    return light.color * i * light.specular_intensity * abs(np.dot(light_reflection, camera_ray * (-1))) ** n
 
 
 # calculates the diffuse intensity from all the lights in the scene
-def get_diffuse_intensity(shape, point, lights, background):
-    if np.any(point == None):
+def get_diffuse_intensity(shape, point, light, i, background):
+    if shape == None:
         return background
-    intensity = np.array([0,0,0])
-    for light in lights:
-        #light_direction = normalize(light.position - point)
-        light_direction = normalize(point - light.position)
-        intensity = intensity + single_light_diffuse_intensity(light.color, light_direction, shape.get_normal(point)) #FIXME need to understand how to find k and i
+    intensity = np.array([0, 0, 0])
+    light_direction = normalize(light.position - point)
+    intensity = single_light_diffuse_intensity(light.color, i, light_direction, shape.get_normal(point))
     return intensity
 
 
 # calculates the specular intensity  from all the lights in the scene
-def get_specular_intensity(shape, point, lights, camera_ray, background):
-    if np.any(point == None):
+def get_specular_intensity(shape, point, light, i, camera_ray, background):
+    if shape == None:
         return background
-    intensity = np.array([0,0,0])
-    for light in lights:
-        #light_direction = normalize(light.position - point)
-        light_direction = normalize(point - light.position)
-        light_reflection = calc_r(light_direction, shape.get_normal(point))
-        intensity = intensity + single_light_specular_intensity(light.color,light.specular_intensity, light_reflection, camera_ray, shape.material.phong_coeff) #FIXME need to understand how to find k, i and n
+    intensity = np.array([0, 0, 0])
+    light_direction = normalize(light.position - point)
+    light_reflection = calc_r(light_direction, shape.get_normal(point))
+    intensity = single_light_specular_intensity(light, i, light_reflection, camera_ray, shape.material.phong_coeff)
     return intensity
 
 
@@ -104,8 +100,9 @@ def calc_number_of_hits(light, grid, point, shape, shapes_dict):
     for i in range(grid.num_of_cells):
         for j in range(grid.num_of_cells):
             current_cell_left_point = grid.bottom_left_point + i * grid.du + j * grid.dv
-            random_step_size = np.random.uniformn(0, grid.cell_size, 2)  # two random semples
-            current_ray_source_position = current_cell_left_point + random_step_size  # check dimensions
+            current_ray_source_position = current_cell_left_point + np.array([np.random.uniform(0,grid.cell_size),np.random.uniform(0,grid.cell_size),0])
+            #random_step_size = np.random.uniform(0, grid.cell_size, 2)  # two random semples
+            #current_ray_source_position = current_cell_left_point + random_step_size  # check dimensions
             current_cell_ray = normalize(point - current_ray_source_position)
             (hit_point, first, closest) = first_intersection(current_ray_source_position, current_cell_ray, shapes_dict)
             if closest == shape:
@@ -114,7 +111,7 @@ def calc_number_of_hits(light, grid, point, shape, shapes_dict):
 
 
 def find_perpendicular_plane(light, current_light_ray):
-    d = current_light_ray * light.position
+    d = np.dot(current_light_ray, light.position)
     x = current_light_ray[0]
     y = current_light_ray[1]
     z = current_light_ray[2]
@@ -131,7 +128,7 @@ def find_perpendicular_plane(light, current_light_ray):
 #   backround - the backround color to return if shape is None
 #   recursion - the recursion level of reflection calculations
 def get_color(point, camera_ray, shape, shapes_dict, background, lights, recursion):
-    origin_background = background
+    trans_background = background
     if (shape != None):
         # if transparency != 0 then calculate the background color (not nessesary the background color of the scene).
         if shape.material.transparency != 0:
@@ -145,42 +142,70 @@ def get_color(point, camera_ray, shape, shapes_dict, background, lights, recursi
                     see_troughs.append((hit_point, closest))
                 else:
                     break
-          #  if closest == None:
-          #      background = get_deep_background_color(see_troughs, point, camera_ray, background)
-          #  else:
-          #      background = get_deep_background_color(see_troughs, point, camera_ray, closest.material.diffuse_color)
+            if closest == None:
+                trans_background = get_deep_background_color(see_troughs, point, camera_ray, background)
+            else:
+                trans_background = get_deep_background_color(see_troughs, point, camera_ray,
+                                                             closest.material.diffuse_color)
         # calculate the reflection and get it's color
-        reflection_color = shape.material.reflection_color
+        # reflection_color = shape.material.reflection_color
         ray = camera_ray
         reflection_shape = shape
         reflections = []
+        reflect_background = background
         while recursion != 0 and reflection_shape != None:
             # calculate the reflection ray R
             ray = calc_r(ray * (-1), reflection_shape.get_normal(point))
             # calculate the intersection with the reflection ray
             (point, first, reflection_shape) = first_intersection(point, ray, shapes_dict, reflection_shape)
             if reflection_shape == None:
-                background = origin_background
+                reflect_background = background
                 break
             if recursion > 0:
                 reflections.append((reflection_shape, point, ray))
             else:
                 diffuse_color = reflection_shape.material.diffuse_color * get_diffuse_intensity(reflection_shape, point,
-                                                                                                lights, background)
+                                                                                                lights,
+                                                                                                reflect_background)
                 specular_color = reflection_shape.material.specular_color * get_specular_intensity(reflection_shape,
-                                                                                                   point, lights, ray,background)
-                diffuse_color = reflection_shape.material.diffuse_color
-                #specular_color = reflection_shape.material.specular_color
-                background = (diffuse_color + specular_color) * (1 - shape.material.transparency)
+                                                                                                   point, lights, ray,
+                                                                                                   reflect_background)
+                # diffuse_color = reflection_shape.material.diffuse_color
+                # specular_color = reflection_shape.material.specular_color
+                reflect_background = (diffuse_color + specular_color) * (1 - shape.material.transparency)
             recursion -= 1
-        reflection_color = get_reflection_color(reflections, background, lights)
-        diffuse_color = shape.material.diffuse_color * get_diffuse_intensity(shape, point, lights, background)
-        diffuse_color = shape.material.diffuse_color
-        specular_color = shape.material.specular_color * get_specular_intensity(shape, point, lights, camera_ray, background)
-        #specular_color = shape.material.specular_color
+        reflection_color = get_reflection_color(reflections, reflect_background, lights)
+        diffuse_color = shape.material.diffuse_color * get_diffuse_intensity(shape, point, lights, trans_background)
+        # diffuse_color = shape.material.diffuse_color
+        specular_color = shape.material.specular_color * get_specular_intensity(shape, point, lights, camera_ray,
+                                                                                trans_background)
+        # specular_color = shape.material.specular_color
         output_color = background * shape.material.transparency + \
                        (diffuse_color + specular_color) * (
-                                   1 - shape.material.transparency) + shape.material.reflection_color
+                               1 - shape.material.transparency) + reflection_color * shape.material.reflection_color
+        return output_color
+    else:
+        return background
+
+
+def get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, scene):
+    trans_background = np.array([0, 0, 0])
+    reflect_background = np.array([0, 0, 0])
+    diffuse_intensity = np.array([0, 0, 0])
+    specular_intensity = np.array([0, 0, 0])
+    if shape != None:
+        for light in lights:
+            i = get_light_intensity(light, point, shape, scene.general.shadow_n, shapes_dict)
+            diffuse_intensity = diffuse_intensity + get_diffuse_intensity(shape, point, light, i, background)
+            specular_intensity = specular_intensity + get_specular_intensity(shape, point, light, i, camera_ray, background)
+
+
+        diffuse_color = shape.material.diffuse_color * diffuse_intensity
+        specular_color = shape.material.specular_color * specular_intensity
+        output_color = trans_background * shape.material.transparency + \
+                       (diffuse_color + specular_color) * (1.0 - shape.material.transparency) +\
+                       reflect_background * shape.material.reflection_color
+
         return output_color
     else:
         return background
@@ -202,9 +227,10 @@ def get_reflection_color(reflection_list, background, lights):
         reflection_ray = reflection_list[-(i + 1)][2]
 
         diffuse_color = current_shape.material.diffuse_color * get_diffuse_intensity(current_shape, current_point,
-                                                                                     lights,background)
+                                                                                     lights, background)
         specular_color = current_shape.material.specular_color * get_specular_intensity(current_shape, current_point,
-                                                                                        lights, reflection_ray, background)
+                                                                                        lights, reflection_ray,
+                                                                                        background)
         specular_color = current_shape.material.specular_color
         background = current_shape.material.transparency * background + \
                      (diffuse_color + specular_color) * (1 - current_shape.material.transparency)
@@ -217,10 +243,20 @@ def get_shadow_intensity(light_list, point, camera_ray, shape, n, shapes_dict):
     total_intensity = 0
     # for each light source in the scene
     for light in light_list:
-        current_light_ray = normalize(light.position - point)  # FIXME
+        current_light_ray = normalize(point - light.position)
         plane = find_perpendicular_plane(light, current_light_ray)
         grid = structure.Grid(light, n, plane)
         number_of_hits = calc_number_of_hits(light, grid, point, shape, shapes_dict)
         light_intensity = (1 - light.shadow_intensity) + light.shadow_intensity * (number_of_hits / (n * n))
         total_intensity += light_intensity
     return total_intensity
+
+
+def get_light_intensity(light, point, shape, n, shapes_dict):
+    current_light_ray = normalize(point - light.position)
+    plane = find_perpendicular_plane(light, current_light_ray)
+    grid = structure.Grid(light, n, plane)
+    number_of_hits = calc_number_of_hits(light, grid, point, shape, shapes_dict)
+    percentage = (number_of_hits / (n * n))
+    light_intensity = (1 - light.shadow_intensity) + light.shadow_intensity * percentage
+    return light_intensity

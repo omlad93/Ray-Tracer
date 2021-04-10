@@ -78,9 +78,9 @@ class Sphere:
         (ray^2)t^2 + 2(ray*(lo-center))*t + ((lo-center)*(lo-center) - offset)
         """
         help_vec = np.subtract(lo, self.center)
-        a = sum(np.multiply(ray, ray))
-        b = 2 * sum(np.multiply(ray, help_vec))
-        c = sum(np.multiply(help_vec, help_vec)) - self.radius ** 2
+        a = np.dot(ray, ray)
+        b = 2 * np.dot(ray, help_vec)
+        c = np.dot(help_vec, help_vec) - self.radius ** 2
         discriminant = b ** 2 - 4 * a * c
         result = alg.find_roots(a, b, discriminant)
         if result[0] == alg.Intersection.THROUGH and result[1] > 0:
@@ -115,36 +115,9 @@ class Box:
         self.center = np.array(list(map(float, box_args[0:3])))
         self.edge_length = float(box_args[3])
         self.material = material_mapping[int(box_args[4])]
-        self.construct_planes()
 
-
-    def intersect(self, lo, ray):
-        first = alg.INF
-        closest_point = None
-        for plane in planes:
-            point, t, inetersection = plane.intersect(lo, ray)
-            if inetersection == alg.Intersection.THROUGH:
-                if self.bounds_point(point) and t < first:
-                    first, closest_point, mode = t, point, inetersection
-        return (first, t, mode)
-
-    def bounds_point(self, point):
-        max_dist = self.edge_length / 2
-        xd = abs(point[0] - self.center[0])
-        yd = abs(point[1] - self.center[1])
-        zd = abs(point[2] - self.center[2])
-        return xd < max_dist and yd < max_dist and zd < max_dist
-
-    def construct_planes(self):
-        self.planes = []
-        step = 0.5 * self.edge_length
-        plane_names = ['+x', '+y', '+z', '-x', '-y', '-z', ]
-        unit_vectors = [np.array(1, 0, 0), np.array(0, 1, 0), np.array(0, 0, 1),
-                        np.array(-1, 0, 0), np.array(0, -1, 0), np.array(0, 0, -1)]
-        for i in range(6):
-            normal = unit_vectors[i]
-            point = self.center + step * normal
-            self.planes.append(Plane(point, normal, plane_names[i], self))
+    def intersect(self, point):
+        return (None, alg.INF, Intersection.MISS)
 
     def get_normal(self, point):
         return self.center  # FIXME
@@ -159,18 +132,11 @@ class Box:
 class Plane:
     _idx = count(1)
 
-    def __init__(self, pln_args=None, material_mapping=None,
-                 from_box=False, point=None, normal=None, name=None, box=None):
-        if not from_box:
-            self.name = 'Plane(' + str(next(self._idx)) + ')'
-            self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
-            self.offset = float(pln_args[3])
-            self.material = material_mapping[int(pln_args[4])]
-        if from_box:
-            self.name = f'Plane.from_{box.name}({name})'
-            self.normal = normal
-            self.offset = sum(np.multiply(point, unit_vectors))
-            self.material = box.material
+    def __init__(self, pln_args, material_mapping):
+        self.name = 'Plane(' + str(next(self._idx)) + ')'
+        self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
+        self.offset = float(pln_args[3])
+        self.material = material_mapping[int(pln_args[4])]
 
     def __str__(self):
         return self.name
@@ -220,7 +186,7 @@ class Screen:
         self.name = scene.name.replace('Scene', 'Screen')
         self.Z = scene.camera.towards_vector  # Z Axis
         self.X = scene.camera.right_vector  # X Axis
-        self.Y = -1 * scene.camera.up_vector  # Y Axis
+        self.Y = (-1) * scene.camera.up_vector  # Y Axis
         self.X_pixels = dimensions[0]
         self.Y_pixels = dimensions[1]
         self.pixel_size = scene.camera.screen_width / dimensions[0]
@@ -250,9 +216,10 @@ class Screen:
                 hit = (point, shape)
                 row_hits.append(hit)
 
-                current_pixel_color = alg.get_color(point, current_pixel_ray, shape, scene.shapes,
+                current_pixel_color = alg.get_stupid_color(point, current_pixel_ray, shape, scene.shapes,
                                                     scene.general.background_color, scene.lights,
-                                                    scene.general.recursion_depth)
+                                                    scene)
+
                 #current_pixel_color = current_pixel_color * alg.get_light_intensity(scene.lights, point,
                  #                                                                   current_pixel_ray, shape)
                 row_colors.append(np.array(list(map(int,
@@ -281,7 +248,7 @@ class Grid:
         self.cell_size = self.width / self.num_of_cells
         self.du = self.cell_size * self.axis_U
         self.dv = self.cell_size * self.axis_V
-        self.bottom_left_point = np.array(self.center - 0.5*(self.width*self.self.axis_U + self.width*self.axis_V))
+        self.bottom_left_point = np.array(self.center - 0.5*(self.width*self.axis_U + self.width*self.axis_V))
 
     def __str__(self):
         return self.name
