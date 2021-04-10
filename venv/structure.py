@@ -220,7 +220,7 @@ class Screen:
         self.name = scene.name.replace('Scene', 'Screen')
         self.Z = scene.camera.towards_vector  # Z Axis
         self.X = scene.camera.right_vector  # X Axis
-        self.Y = scene.camera.up_vector  # Y Axis
+        self.Y = -1 * scene.camera.up_vector  # Y Axis
         self.X_pixels = dimensions[0]
         self.Y_pixels = dimensions[1]
         self.pixel_size = scene.camera.screen_width / dimensions[0]
