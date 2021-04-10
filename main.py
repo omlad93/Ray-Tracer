@@ -28,7 +28,7 @@ def parse_scene(input_file_name, dimensions):
     fisheye, fish_factor = None, 0
     file = open(input_file_name, 'r')
     lines = [line.split() for line in file.readlines() if len(line.replace("\n", "")) > 0 and line[0] != '#']
-    i, j, k, = 1, 1, 1
+    i, j, k = 1, 1, 1
 
     for line in lines:
         # print(line)
@@ -56,7 +56,7 @@ def parse_scene(input_file_name, dimensions):
             k += 1
 
     shapes = {'spheres': spheres, 'planes': planes, 'boxes': boxes}
-    print(f'Parsing Scene from \'{input_file_name}\':\n\t> {k} Objects\n\t> {j} Materials\n\t> {i} Lights')
+    print(f'Parsing Scene from \'{input_file_name}\':\n\t> {k-1} Objects\n\t> {j-1} Materials\n\t> {i-1} Lights')
     fish_description = f'\t> Fish Eye effect enabled with k={fish_factor}' if fisheye else \
         '\t> Fish Eye effect disabled'
     print(fish_description)
@@ -73,6 +73,7 @@ def generate_png(png_path, scene):
     pix_array.reshape(dim[0], dim[1], 3)
     png = Image.fromarray(np.uint8(pix_array))
     png.save(png_path)
+    png.show()
 
 
 def main():

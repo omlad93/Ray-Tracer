@@ -2,10 +2,8 @@ import numpy as np
 import alg
 from alg import Intersection
 import time
+import math
 from itertools import count
-
-Delta = 0.1
-MAX_RAY = 10
 
 
 class Light:
@@ -96,8 +94,7 @@ class Sphere:
             return (None, alg.INF, alg.Intersection.MISS)
 
     def get_normal(self, point):
-        normal = np.subtract(point, self.center)
-        normal = alg.normalize(normal)
+        normal = alg.normalize(np.subtract(point, self.center))
         return normal
 
     def __str__(self):
@@ -115,12 +112,42 @@ class Box:
         self.center = np.array(list(map(float, box_args[0:3])))
         self.edge_length = float(box_args[3])
         self.material = material_mapping[int(box_args[4])]
+        self.construct_planes()
 
-    def intersect(self, point):
-        return (None, alg.INF, Intersection.MISS)
+    def intersect(self, lo, ray):
+        first = alg.INF
+        closest_point = None
+        for plane in planes:
+            point, t, inetersection = plane.intersect(lo, ray)
+            if inetersection == alg.Intersection.THROUGH:
+                if self.bounds_point(point) and t < first:
+                    first, closest_point, mode = t, point, inetersection
+        return (first, t, mode)
+
+    def bounds_point(self, point):
+        max_dist = self.edge_length / 2
+        xd = abs(point[0] - self.center[0])
+        yd = abs(point[1] - self.center[1])
+        zd = abs(point[2] - self.center[2])
+        return xd < max_dist and yd < max_dist and zd < max_dist
+
+    def construct_planes(self):
+        self.planes = []
+        step = 0.5 * self.edge_length
+        plane_names = ['+x', '+y', '+z', '-x', '-y', '-z', ]
+        unit_vectors = [np.array(1, 0, 0), np.array(0, 1, 0), np.array(0, 0, 1),
+                        np.array(-1, 0, 0), np.array(0, -1, 0), np.array(0, 0, -1)]
+        for i in range(6):
+            normal = unit_vectors[i]
+            point = self.center + step * normal
+            self.planes.append(Plane(point, normal, plane_names[i], self))
 
     def get_normal(self, point):
-        return self.center  # FIXME
+        for plane in self.planes:
+            if np.dot(point, plane.normal) == plane.offset:
+                return plane.normal
+        print('tried to get normal of a box for a non-edged point')
+        exit(-2)
 
     def __str__(self):
         return self.name
@@ -132,11 +159,18 @@ class Box:
 class Plane:
     _idx = count(1)
 
-    def __init__(self, pln_args, material_mapping):
-        self.name = 'Plane(' + str(next(self._idx)) + ')'
-        self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
-        self.offset = float(pln_args[3])
-        self.material = material_mapping[int(pln_args[4])]
+    def __init__(self, pln_args=None, material_mapping=None,
+                 from_box=False, point=None, normal=None, name=None, box=None):
+        if not from_box:
+            self.name = 'Plane(' + str(next(self._idx)) + ')'
+            self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
+            self.offset = float(pln_args[3])
+            self.material = material_mapping[int(pln_args[4])]
+        if from_box:
+            self.name = f'Plane.from_{box.name}({name})'
+            self.normal = normal
+            self.offset = np.dot(point, unit_vectors)
+            self.material = box.material
 
     def __str__(self):
         return self.name
@@ -158,15 +192,15 @@ class Plane:
             Miss - lo not on Plane
             Unified - lo on Plane
         """
-        dot_product = sum(np.multiply(self.normal, ray))
+        dot_product = np.dot(self.normal, ray)
         if dot_product == 0:  # paralel or miss
-            if sum(np.multiply(lo, self.normal)) + self.offset == 0:
+            if np.dot(lo, self.normal) + self.offset == 0:
                 return (lo, 0, Intersection.UNIFIED)
             else:
                 return (None, alg.INF, Intersection.MISS)
         else:
             po = self.offset * self.normal
-            t = sum(np.multiply(np.subtract(po, lo), self.normal)) / dot_product
+            t = np.dot(np.subtract(po, lo), self.normal) / dot_product
             if t > 0:
                 point = lo + t * ray
                 return (point, t, Intersection.THROUGH)
@@ -186,7 +220,7 @@ class Screen:
         self.name = scene.name.replace('Scene', 'Screen')
         self.Z = scene.camera.towards_vector  # Z Axis
         self.X = scene.camera.right_vector  # X Axis
-        self.Y = (-1) * scene.camera.up_vector  # Y Axis
+        self.Y = -1 * scene.camera.up_vector  # Y Axis
         self.X_pixels = dimensions[0]
         self.Y_pixels = dimensions[1]
         self.pixel_size = scene.camera.screen_width / dimensions[0]
@@ -194,8 +228,8 @@ class Screen:
         self.hight = self.pixel_size * self.Y_pixels
         dx = self.pixel_size * self.X  # a pixel-sized step on X axis
         dy = self.pixel_size * self.Y  # a pixel-sized step on Y axis
-        screen_center = scene.camera.position + scene.camera.screen_dist * scene.camera.towards_vector
-        bottom_left_pixel_center = screen_center - 0.5 * (
+        self.screen_center = scene.camera.position + scene.camera.screen_dist * scene.camera.towards_vector
+        self.bottom_left_pixel_center = self.screen_center - 0.5 * (
                 (self.width - self.pixel_size) * self.X + (self.hight - self.pixel_size) * self.Y)
         self.pixel_centers, self.pixel_rays = [], []
         self.pixel_hits, self.pixel_colors = [], []
@@ -204,17 +238,20 @@ class Screen:
             row_rays = []
             row_hits = []
             row_colors = []
+            if scene.camera.fish_eye:
+                fish_screen = [[np.zeros(3) for j in range(dimensions[1])] for i in range(dimensions[0])]
 
             for j in range(dimensions[1]):  # for each column
-                current_pixel_center = bottom_left_pixel_center + j * dx + i * dy
+                current_pixel_center = self.bottom_left_pixel_center + j * dx + i * dy
+
+
                 row_pixels.append(current_pixel_center)
 
                 current_pixel_ray = alg.normalize(current_pixel_center - scene.camera.position)
-                row_rays.append(current_pixel_ray)
-
+                #row_rays.append(current_pixel_ray)
                 point, t, shape = alg.first_intersection(current_pixel_center, current_pixel_ray, scene.shapes)
-                hit = (point, shape)
-                row_hits.append(hit)
+                #hit = (point, shape)
+                #row_hits.append(hit)
 
                 current_pixel_color = alg.get_stupid_color(point, current_pixel_ray, shape, scene.shapes,
                                                     scene.general.background_color, scene.lights,
@@ -226,8 +263,8 @@ class Screen:
                                                     255 * current_pixel_color))))  # should be modified after Iris will give real color in return
 
             self.pixel_centers.append(row_pixels)
-            self.pixel_rays.append(row_rays)
-            self.pixel_hits.append(row_hits)
+            #self.pixel_rays.append(row_rays)
+            #self.pixel_hits.append(row_hits)
             self.pixel_colors.append(row_colors)
         print(f'{self} is up and complete')
 
@@ -236,6 +273,23 @@ class Screen:
 
     def __repr__(self):
         return 'Class.Screen.' + self.name
+
+    def fish_eye_transofrm(self, point, screen_dist):
+        p_x, p_y, _ = point
+        c_x, c_y, c_z = self.screen_center
+        dx, dy = abs(c_x - p_x), abs(c_y - p_y)
+        theta = math.atan(dy / dx)
+        R = alg.calc_effective_radius(k,theta,screen_dist)
+        n_x = R*math.cos(theta)/self.pixel_size + c_x
+        n_y = R*math.sin(theta)/self.pixel_size + c_y
+        bl_x, bl_w, _ = bottom_left
+        ni, nj = math.ceil((n_x - bl_x) / self.pixel_size), math.ciel((n_y - bl_y) / self.pixel_size)
+
+
+
+
+
+
 
 
 class Grid:

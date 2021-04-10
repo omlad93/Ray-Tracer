@@ -260,3 +260,13 @@ def get_light_intensity(light, point, shape, n, shapes_dict):
     percentage = (number_of_hits / (n * n))
     light_intensity = (1 - light.shadow_intensity) + light.shadow_intensity * percentage
     return light_intensity
+
+
+def calc_effective_radius(k, theta, screen_dist):
+    if k > 0 and k <= 1:
+        return math.tan(k * theta) * screen_dist / k
+    elif k == 0:
+        return screen_dist * theta
+    else:
+        return math.sin(k * theta) * screen_dist / k
+
