@@ -71,8 +71,6 @@ def generate_png(png_path, scene):
     pix_array = np.array(scene.screen.pixel_colors)
     dim = (scene.screen.X_pixels, scene.screen.Y_pixels)
     pix_array.reshape(dim[0], dim[1], 3)
-    print(' ... ')
-    # png = Image.new('RGB', dim, color=pix_array)
     png = Image.fromarray(np.uint8(pix_array))
     png.save(png_path)
 

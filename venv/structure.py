@@ -115,9 +115,36 @@ class Box:
         self.center = np.array(list(map(float, box_args[0:3])))
         self.edge_length = float(box_args[3])
         self.material = material_mapping[int(box_args[4])]
+        self.construct_planes()
 
-    def intersect(self, point):
-        return (None, alg.INF, Intersection.MISS)
+
+    def intersect(self, lo, ray):
+        first = alg.INF
+        closest_point = None
+        for plane in planes:
+            point, t, inetersection = plane.intersect(lo, ray)
+            if inetersection == alg.Intersection.THROUGH:
+                if self.bounds_point(point) and t < first:
+                    first, closest_point, mode = t, point, inetersection
+        return (first, t, mode)
+
+    def bounds_point(self, point):
+        max_dist = self.edge_length / 2
+        xd = abs(point[0] - self.center[0])
+        yd = abs(point[1] - self.center[1])
+        zd = abs(point[2] - self.center[2])
+        return xd < max_dist and yd < max_dist and zd < max_dist
+
+    def construct_planes(self):
+        self.planes = []
+        step = 0.5 * self.edge_length
+        plane_names = ['+x', '+y', '+z', '-x', '-y', '-z', ]
+        unit_vectors = [np.array(1, 0, 0), np.array(0, 1, 0), np.array(0, 0, 1),
+                        np.array(-1, 0, 0), np.array(0, -1, 0), np.array(0, 0, -1)]
+        for i in range(6):
+            normal = unit_vectors[i]
+            point = self.center + step * normal
+            self.planes.append(Plane(point, normal, plane_names[i], self))
 
     def get_normal(self, point):
         return self.center  # FIXME
@@ -132,11 +159,18 @@ class Box:
 class Plane:
     _idx = count(1)
 
-    def __init__(self, pln_args, material_mapping):
-        self.name = 'Plane(' + str(next(self._idx)) + ')'
-        self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
-        self.offset = float(pln_args[3])
-        self.material = material_mapping[int(pln_args[4])]
+    def __init__(self, pln_args=None, material_mapping=None,
+                 from_box=False, point=None, normal=None, name=None, box=None):
+        if not from_box:
+            self.name = 'Plane(' + str(next(self._idx)) + ')'
+            self.normal = alg.normalize(np.array(list(map(float, pln_args[0:3]))))
+            self.offset = float(pln_args[3])
+            self.material = material_mapping[int(pln_args[4])]
+        if from_box:
+            self.name = f'Plane.from_{box.name}({name})'
+            self.normal = normal
+            self.offset = sum(np.multiply(point, unit_vectors))
+            self.material = box.material
 
     def __str__(self):
         return self.name
