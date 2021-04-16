@@ -146,10 +146,9 @@ def calc_shape_reflection(point, ray, shape, shapes_dict, lights, scene, backgro
         return reflection_color
     else:
         # calculate the reflection ray R
-        #r = calc_r(ray, shape.get_normal(point))
         reflection_ray = ray - 2 * np.dot(ray, shape.get_normal(point)) * shape.get_normal(point)
         # calculate the intersection with the reflection ray
-        (point, first, reflection_shape, _) = first_intersection(point, ray, shapes_dict, shape)
+        (point, first, reflection_shape, _) = first_intersection(point, reflection_ray, shapes_dict, shape)
         color = get_stupid_color(point, ray, reflection_shape, shapes_dict, background, lights, scene)
         color = calc_shape_transparency(point, ray, reflection_shape, shapes_dict, color, background, lights, scene)
         return shape.material.reflection_color * (color + calc_shape_reflection(point, reflection_ray, reflection_shape, shapes_dict, lights, scene, background, recursion - 1))
@@ -161,13 +160,11 @@ def calc_shape_reflection(point, ray, shape, shapes_dict, lights, scene, backgro
 #   shape - the shape which the given point is located on
 #   backround - the backround color to return if shape is None
 #   recursion - the recursion level of reflection calculations
-def get_color(first_intersection, camera_ray, shapes_dict, background, scene, recursion =0):
-    # recursion = scene.general.recursion_depth
-    point, shape = first_intersection[0], first_intersection[2]
-    color = np.clip(get_stupid_color(point, camera_ray, shape, shapes_dict, background, scene.lights, scene),0,1)
+def get_color(point, camera_ray, shape, shapes_dict, background, lights, scene, recursion=0):
+    color = get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, scene)
 
-    return np.clip(calc_shape_transparency(point, camera_ray, shape, shapes_dict, color, background, scene.lights, scene) + \
-           calc_shape_reflection(point, camera_ray, shape, shapes_dict, scene.lights, scene, background, recursion),0,1)
+    return np.clip(calc_shape_transparency(point, camera_ray, shape, shapes_dict, color, background, lights, scene) + \
+           calc_shape_reflection(point, camera_ray, shape, shapes_dict, lights, scene, background, recursion), 0, 1)
 
 
 def get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, scene):
@@ -178,9 +175,9 @@ def get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, 
             diffuse_intensity = get_diffuse_intensity(shape, point, light, i, background)
             specular_intensity = get_specular_intensity(shape, point, light, i, camera_ray, background)
             color = color + shape.material.diffuse_color * diffuse_intensity + shape.material.specular_color * specular_intensity
-        return color
+        return np.clip(color, 0, 1)
     else:
-        return background
+        return np.clip(background)
 
 
 # calculates the light intensity of a certain point
