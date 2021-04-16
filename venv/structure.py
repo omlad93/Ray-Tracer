@@ -106,7 +106,7 @@ class Sphere:
         Sphere.intersection_time += time.time() - Sphere.total_rooting
 
     def get_normal(self, point):
-        normal = alg.normalize(np.subtract(point, self.center))
+        normal = alg.normalize(point - self.center)
         return normal
 
     def __str__(self):
@@ -260,9 +260,11 @@ class Screen:
         total_ray_time = 0
         max_intersect_time = 0
 
+
         self.pixel_colors = [
-                    [self.ret_color(self.px(i,j,scene), first_intersection(self.px(i,j,scene)[0], self.px(i,j,scene)[1], scene.shapes), scene.shapes, scene.general.background_color,scene.lights, scene) for j in range(dimensions[1])]
-                        for i in range(dimensions[1])]
+                    [255 * alg.get_color(alg.first_intersection(self.px(i,j,scene)[0], self.px(i,j,scene)[1], scene.shapes), self.px(i,j,scene)[1],
+                                          scene.shapes, scene.general.background_color, scene) for i in range(dimensions[0])]
+                        for j in range(dimensions[1])]
 
         # for i in range(dimensions[0]):  # for each row
         #     row_pixels = []
@@ -303,8 +305,8 @@ class Screen:
         #     self.pixel_colors.append(row_colors)
         #     # self.pixel_rays.append(row_rays)
         #     # self.pixel_hits.append(row_hits)
-        if scene.camera.fish_eye:
-            self.pixel_colors = fish_sensor
+        # if scene.camera.fish_eye:
+        #     self.pixel_colors = fish_sensor
         # print(f'{self} is up and complete'
         #       f'\n\t* avrege ray creation time: {total_ray_time / (dimensions[0] * dimensions[1]):.4f}s, total:{total_ray_time:.4f}s'
         #       f'\n\t* avrege Sphere intersection time: {Sphere.intersection_time / Sphere.intersections:.4f}s, total:{Sphere.intersection_time:.4f}s'
@@ -317,23 +319,17 @@ class Screen:
     def __repr__(self):
         return 'Class.Screen.' + self.name
 
-    def fish_eye_transofrm(self, originial_pix, screen_dist, fish_factor, bottom_left, i, j):
-        p_x, p_y, _ = originial_pix
+    def fish_eye_transofrm(self, point, screen_dist):
+        p_x, p_y, _ = point
         c_x, c_y, c_z = self.screen_center
         dx, dy = abs(c_x - p_x), abs(c_y - p_y)
-        r = math.sqrt(dx ** 2 + dy ** 2)
-        theta = math.atan(r / screen_dist)  # angle with Z axis
-        R = alg.calc_effective_radius(fish_factor, theta, screen_dist)
+        theta = math.atan(dy / dx)
+        R = alg.calc_effective_radius(k,theta,screen_dist)
+        n_x = R*math.cos(theta)/self.pixel_size + c_x
+        n_y = R*math.sin(theta)/self.pixel_size + c_y
+        bl_x, bl_w, _ = bottom_left
+        ni, nj = math.ceil((n_x - bl_x) / self.pixel_size), math.ciel((n_y - bl_y) / self.pixel_size)
 
-        phi = math.atan(dy / dx)  # axis with X axis
-        new_pix = (self.screen_center + R * math.cos(phi) * self.X + R * math.sin(phi) * self.Y)
-        dist_from_bl = (new_pix - bottom_left) / self.pixel_size
-
-        ni, nj = int(abs(dist_from_bl[0])), int(abs(dist_from_bl[1]))
-        return ni, nj
-
-    def fish_eye_transormation(self, i, j):
-        pass
 
     def px(self, i, j, scene):
         center =  self.bottom_left_pixel_center + i * (self.pixel_size * self.X) + j * (self.pixel_size * self.Y)
@@ -354,7 +350,7 @@ class Grid:
         self.cell_size = self.width / self.num_of_cells
         self.du = self.cell_size * self.axis_U
         self.dv = self.cell_size * self.axis_V
-        self.bottom_left_point = np.array(self.center - 0.5 * (self.width * self.axis_U + self.width * self.axis_V))
+        self.bottom_left_point = np.array(self.center - 0.5*(self.width*self.axis_U + self.width*self.axis_V))
 
     def __str__(self):
         return self.name
@@ -375,25 +371,3 @@ class Scene:
 
     def __repr__(self):
         return 'Class.Scene.' + self.name
-
-
-
-
-
-def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
-    first = INF
-    closest = None
-    hit_point = None
-    # intersections =[]
-    for _, shape_list in shapes_dict.items():
-        for shape in shape_list:
-            point, t, intersect = shape.intersect(lo, ray)
-            if shape != ignore_shape and (
-                    intersect == Intersection.TANGENT or intersect == Intersection.THROUGH) and t < first:
-                first = t
-                hit_point = point
-                closest = shape
-            # if t>0 and t < INF:
-            #     intersections.append((point,shape))
-
-    return (hit_point, first, closest)  # , intersections)

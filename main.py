@@ -75,7 +75,7 @@ def generate_png(png_path, scene):
     pix_array = np.array(scene.screen.pixel_colors)
     dim = (scene.screen.X_pixels, scene.screen.Y_pixels)
     pix_array.reshape(dim[0], dim[1], 3)
-    png = Image.fromarray(np.uint8(pix_array * 255), mode='RGB')
+    png = Image.fromarray(np.uint8(pix_array))
     png.save(png_path)
     png.show()
 
@@ -86,10 +86,11 @@ def main():
     input_file_name, out_name, dimensions = parse_args(sys.argv[1:])
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
     scene = parse_scene(input_file_name, dimensions)
-    clk = time.time() - clk
+    process = time.time() - clk
+    clk = time.time()
     generate_png(out_name, scene)
     saving = time.time() - clk
-    print(f'Ray-Tracer.py has finished:\n\t- creating {out_name} took {clk}s\n\t- saving took {saving}')
+    print(f'Ray-Tracer.py has finished:\n\t- creating {out_name} took {process:.2f}s\n\t- saving took {saving:.2f}s')
 
 
 if __name__ == '__main__':
