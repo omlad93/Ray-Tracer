@@ -26,8 +26,12 @@ def parse_scene(input_file_name, dimensions):
     planes, lights = [], []
     camera, scene_set = None, None
     fisheye, fish_factor = None, 0
-    file = open(input_file_name, 'r')
-    lines = [line.split() for line in file.readlines() if len(line.replace("\n", "")) > 0 and line[0] != '#']
+    try:
+        file = open(input_file_name, 'r')
+    except FileNotFoundError as err:
+        print(f'\n\t Raised Error: {err}')
+        exit(-2)
+    lines = [line.split() for line in file.readlines() if len(line.strip().replace("\n", "")) > 0 and line[0] != '#']
     i, j, k = 1, 1, 1
 
     for line in lines:
@@ -71,7 +75,7 @@ def generate_png(png_path, scene):
     pix_array = np.array(scene.screen.pixel_colors)
     dim = (scene.screen.X_pixels, scene.screen.Y_pixels)
     pix_array.reshape(dim[0], dim[1], 3)
-    png = Image.fromarray(np.uint8(pix_array))
+    png = Image.fromarray(np.uint8(pix_array * 255), mode='RGB')
     png.save(png_path)
     png.show()
 
@@ -83,10 +87,9 @@ def main():
     print(f'Screen size {dimensions[0]}x{dimensions[1]}')
     scene = parse_scene(input_file_name, dimensions)
     clk = time.time() - clk
-    print(scene.screen.pixel_hits, file=hit_file)
-
     generate_png(out_name, scene)
-    print(f'Ray-Tracer.py has finished:\ngenerating {out_name} took {clk}s')
+    saving = time.time() - clk
+    print(f'Ray-Tracer.py has finished:\n\t- creating {out_name} took {clk}s\n\t- saving took {saving}')
 
 
 if __name__ == '__main__':

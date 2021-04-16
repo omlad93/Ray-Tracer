@@ -32,6 +32,7 @@ def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
     first = INF
     closest = None
     hit_point = None
+    intersections =[]
     for _, shape_list in shapes_dict.items():
         for shape in shape_list:
             point, t, intersect = shape.intersect(lo, ray)
@@ -40,16 +41,16 @@ def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
                 first = t
                 hit_point = point
                 closest = shape
-    # if closest != None:
-    #     if closest.material.transparency != 0:
-    #         first_intersection(point, ray,shapes_dict, recursion)
-    #         pass
-    return (hit_point, first, closest)
+            if t>0 and t < INF:
+                intersections.append((point,shape))
+
+    return (hit_point, first, closest, intersections)
 
 
 # finds a root of a 2nd degree equation given a,b coeiffecients and discriminant
 # used for calculating intersection with spheres
 def find_roots(a, b, discriminant):
+
     if discriminant < 0:
         return (Intersection.MISS, None)
     elif discriminant == 0:
@@ -104,7 +105,7 @@ def calc_number_of_hits(light, grid, point, shape, shapes_dict):
             #random_step_size = np.random.uniform(0, grid.cell_size, 2)  # two random semples
             #current_ray_source_position = current_cell_left_point + random_step_size  # check dimensions
             current_cell_ray = normalize(point - current_ray_source_position)
-            (hit_point, first, closest) = first_intersection(current_ray_source_position, current_cell_ray, shapes_dict)
+            (hit_point, first, closest, _) = first_intersection(current_ray_source_position, current_cell_ray, shapes_dict)
             if closest == shape:
                 num_of_hits += 1
     return num_of_hits
@@ -133,11 +134,11 @@ def get_color(point, camera_ray, shape, shapes_dict, background, lights, recursi
         # if transparency != 0 then calculate the background color (not nessesary the background color of the scene).
         if shape.material.transparency != 0:
             see_troughs = []
-            (hit_point, first, closest) = first_intersection(point, camera_ray, shapes_dict, shape)
+            (hit_point, first, closest,_) = first_intersection(point, camera_ray, shapes_dict, shape)
             see_troughs.append((hit_point, closest))
             while closest != None:
                 if closest.material.transparency != 0:
-                    (hit_point, first, closest) = first_intersection(hit_point, camera_ray, shapes_dict, closest)
+                    (hit_point, first, closest,_) = first_intersection(hit_point, camera_ray, shapes_dict, closest)
                     # store the results (touples of shape and point) in array
                     see_troughs.append((hit_point, closest))
                 else:
@@ -157,7 +158,7 @@ def get_color(point, camera_ray, shape, shapes_dict, background, lights, recursi
             # calculate the reflection ray R
             ray = calc_r(ray * (-1), reflection_shape.get_normal(point))
             # calculate the intersection with the reflection ray
-            (point, first, reflection_shape) = first_intersection(point, ray, shapes_dict, reflection_shape)
+            (point, first, reflection_shape,_) = first_intersection(point, ray, shapes_dict, reflection_shape)
             if reflection_shape == None:
                 reflect_background = background
                 break

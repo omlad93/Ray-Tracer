@@ -5,6 +5,8 @@ import time
 import math
 from itertools import count
 
+INF = float('inf')
+
 
 class Light:
     _idx = count(1)
@@ -59,6 +61,8 @@ class Camera:
 
 class Sphere:
     _idx = count(1)
+    intersection_time = 0
+    intersections = 0
 
     def __init__(self, sphr_args, material_mapping):
         self.name = 'Sphere(' + str(next(self._idx)) + ')'
@@ -75,23 +79,31 @@ class Sphere:
         The equation we recieve is the following equation:
         (ray^2)t^2 + 2(ray*(lo-center))*t + ((lo-center)*(lo-center) - offset)
         """
+        int = time.time()
+        Sphere.intersections += 1
+
         help_vec = np.subtract(lo, self.center)
         a = np.dot(ray, ray)
         b = 2 * np.dot(ray, help_vec)
         c = np.dot(help_vec, help_vec) - self.radius ** 2
         discriminant = b ** 2 - 4 * a * c
-        result = alg.find_roots(a, b, discriminant)
-        if result[0] == alg.Intersection.THROUGH and result[1] > 0:
-            point = lo + result[1] * ray
-            return (point, result[1], alg.Intersection.THROUGH)
-        elif result[0] == alg.Intersection.THROUGH and result[2] > 0:
-            point = lo + result[2] * ray
-            return (point, result[2], alg.Intersection.THROUGH)
-        elif result[0] == alg.Intersection.TANGENT and result[1] > 0:
-            point = lo + result[1] * ray
-            return (point, result[1], alg.Intersection.TANGENT)
+
+        if discriminant < 0:
+            return (None, INF, Intersection.MISS)
+        elif discriminant == 0:
+            t = -b / (2 * a)
+            point = lo + t * ray
+            return (point, t, alg.Intersection.TANGENT)
         else:
-            return (None, alg.INF, alg.Intersection.MISS)
+            t = sorted([(math.sqrt(discriminant) - b) / (2 * a), -(b + math.sqrt(discriminant)) / (2 * a)])
+            if (t[0] > 0):
+                point = lo + t[0] * ray
+                return (point, t[0], alg.Intersection.THROUGH)
+            elif (t[1] > 0):
+                point = lo + t[1] * ray
+                return (point, t[1], alg.Intersection.THROUGH)
+            return (None, INF, Intersection.MISS)
+        Sphere.intersection_time += time.time() - Sphere.total_rooting
 
     def get_normal(self, point):
         normal = alg.normalize(np.subtract(point, self.center))
@@ -115,7 +127,7 @@ class Box:
         self.construct_planes()
 
     def intersect(self, lo, ray):
-        first = alg.INF
+        first = INF
         closest_point = None
         for plane in planes:
             point, t, inetersection = plane.intersect(lo, ray)
@@ -158,6 +170,8 @@ class Box:
 
 class Plane:
     _idx = count(1)
+    intersection_time = 0
+    intersections = 0
 
     def __init__(self, pln_args=None, material_mapping=None,
                  from_box=False, point=None, normal=None, name=None, box=None):
@@ -192,20 +206,24 @@ class Plane:
             Miss - lo not on Plane
             Unified - lo on Plane
         """
+        Plane.intersections += 1
+        int = time.time()
         dot_product = np.dot(self.normal, ray)
         if dot_product == 0:  # paralel or miss
+            Plane.intersection_time += time.time() - int
             if np.dot(lo, self.normal) + self.offset == 0:
                 return (lo, 0, Intersection.UNIFIED)
             else:
-                return (None, alg.INF, Intersection.MISS)
+                return (None, INF, Intersection.MISS)
         else:
             po = self.offset * self.normal
             t = np.dot(np.subtract(po, lo), self.normal) / dot_product
+            Plane.intersection_time += time.time() - int
             if t > 0:
                 point = lo + t * ray
                 return (point, t, Intersection.THROUGH)
             else:
-                return (None, alg.INF, Intersection.MISS)
+                return (None, INF, Intersection.MISS)
 
 
 class Scene_Set:
@@ -233,40 +251,65 @@ class Screen:
                 (self.width - self.pixel_size) * self.X + (self.hight - self.pixel_size) * self.Y)
         self.pixel_centers, self.pixel_rays = [], []
         self.pixel_hits, self.pixel_colors = [], []
-        for i in range(dimensions[0]):  # for each row
-            row_pixels = []
-            row_rays = []
-            row_hits = []
-            row_colors = []
-            if scene.camera.fish_eye:
-                fish_screen = [[np.zeros(3) for j in range(dimensions[1])] for i in range(dimensions[0])]
 
-            for j in range(dimensions[1]):  # for each column
-                current_pixel_center = self.bottom_left_pixel_center + j * dx + i * dy
+        # if scene.camera.fish_eye:
+        #     fish_sensor = [[np.zeros(3) for j in range(dimensions[1])] for i in range(dimensions[0])]
+        #     bl_corner = self.bottom_left_pixel_center - 0.5 * self.pixel_size * self.X - 0.5 * self.pixel_size * self.Y
 
+        total_intersection = 0
+        total_ray_time = 0
+        max_intersect_time = 0
 
-                row_pixels.append(current_pixel_center)
+        self.pixel_colors = [
+                    [self.ret_color(self.px(i,j,scene), first_intersection(self.px(i,j,scene)[0], self.px(i,j,scene)[1], scene.shapes), scene.shapes, scene.general.background_color,scene.lights, scene) for j in range(dimensions[1])]
+                        for i in range(dimensions[1])]
 
-                current_pixel_ray = alg.normalize(current_pixel_center - scene.camera.position)
-                #row_rays.append(current_pixel_ray)
-                point, t, shape = alg.first_intersection(current_pixel_center, current_pixel_ray, scene.shapes)
-                #hit = (point, shape)
-                #row_hits.append(hit)
-
-                current_pixel_color = alg.get_stupid_color(point, current_pixel_ray, shape, scene.shapes,
-                                                    scene.general.background_color, scene.lights,
-                                                    scene)
-
-                #current_pixel_color = current_pixel_color * alg.get_light_intensity(scene.lights, point,
-                 #                                                                   current_pixel_ray, shape)
-                row_colors.append(np.array(list(map(int,
-                                                    255 * current_pixel_color))))  # should be modified after Iris will give real color in return
-
-            self.pixel_centers.append(row_pixels)
-            #self.pixel_rays.append(row_rays)
-            #self.pixel_hits.append(row_hits)
-            self.pixel_colors.append(row_colors)
-        print(f'{self} is up and complete')
+        # for i in range(dimensions[0]):  # for each row
+        #     row_pixels = []
+        #     row_colors = []
+        #     # row_rays = []
+        #     # row_hits = []
+        #
+        #     for j in range(dimensions[1]):  # for each column
+        #
+        #         current_pixel_center = self.bottom_left_pixel_center + j * dx + i * dy
+        #         row_pixels.append(current_pixel_center)
+        #
+        #         ray_time = time.time()
+        #         current_pixel_ray = alg.normalize(current_pixel_center - scene.camera.position)
+        #         ray_time = time.time() - ray_time
+        #         total_ray_time += ray_time
+        #
+        #         interssection_time = time.time()
+        #         point, t, shape = first_intersection(current_pixel_center, current_pixel_ray, scene.shapes)
+        #         interssection_time = time.time() - interssection_time
+        #         total_intersection += interssection_time
+        #         max_intersect_time = max(interssection_time, max_intersect_time)
+        #
+        #         current_pixel_color = shape.material.specular_color if shape is not None else scene.general.background_color
+        #         # current_pixel_color = alg.get_stupid_color(point, current_pixel_ray, shape, scene.shapes,
+        #         # scene.general.background_color, scene.lights,
+        #         # scene)
+        #         if scene.camera.fish_eye:
+        #             ni, nj = self.fish_eye_transofrm(current_pixel_center, scene.camera.screen_dist, scene.camera.k,
+        #                                              bl_corner, i, j)
+        #             fish_sensor[ni][nj] = current_pixel_color
+        #
+        #         # row_colors.append(np.array(list(map(int,
+        #         #                                     255 * current_pixel_color))))  # should be modified after Iris will give real color in return
+        #         row_colors.append(np.array(current_pixel_color))
+        #
+        #     self.pixel_centers.append(row_pixels)
+        #     self.pixel_colors.append(row_colors)
+        #     # self.pixel_rays.append(row_rays)
+        #     # self.pixel_hits.append(row_hits)
+        if scene.camera.fish_eye:
+            self.pixel_colors = fish_sensor
+        # print(f'{self} is up and complete'
+        #       f'\n\t* avrege ray creation time: {total_ray_time / (dimensions[0] * dimensions[1]):.4f}s, total:{total_ray_time:.4f}s'
+        #       f'\n\t* avrege Sphere intersection time: {Sphere.intersection_time / Sphere.intersections:.4f}s, total:{Sphere.intersection_time:.4f}s'
+        #       f'\n\t* avrege Plane  intersection time: {Plane.intersection_time / Plane.intersections:.4f}s, total:{Sphere.intersection_time:.4f}s'
+        #       f'\n\t* avrege intersection time: {total_intersection / (dimensions[0] * dimensions[1]):.4f}s, total:{total_intersection:.4f}s, max:{max_intersect_time:.4f}s\n')
 
     def __str__(self):
         return self.name
@@ -274,23 +317,32 @@ class Screen:
     def __repr__(self):
         return 'Class.Screen.' + self.name
 
-    def fish_eye_transofrm(self, point, screen_dist):
-        p_x, p_y, _ = point
+    def fish_eye_transofrm(self, originial_pix, screen_dist, fish_factor, bottom_left, i, j):
+        p_x, p_y, _ = originial_pix
         c_x, c_y, c_z = self.screen_center
         dx, dy = abs(c_x - p_x), abs(c_y - p_y)
-        theta = math.atan(dy / dx)
-        R = alg.calc_effective_radius(k,theta,screen_dist)
-        n_x = R*math.cos(theta)/self.pixel_size + c_x
-        n_y = R*math.sin(theta)/self.pixel_size + c_y
-        bl_x, bl_w, _ = bottom_left
-        ni, nj = math.ceil((n_x - bl_x) / self.pixel_size), math.ciel((n_y - bl_y) / self.pixel_size)
+        r = math.sqrt(dx ** 2 + dy ** 2)
+        theta = math.atan(r / screen_dist)  # angle with Z axis
+        R = alg.calc_effective_radius(fish_factor, theta, screen_dist)
 
+        phi = math.atan(dy / dx)  # axis with X axis
+        new_pix = (self.screen_center + R * math.cos(phi) * self.X + R * math.sin(phi) * self.Y)
+        dist_from_bl = (new_pix - bottom_left) / self.pixel_size
 
+        ni, nj = int(abs(dist_from_bl[0])), int(abs(dist_from_bl[1]))
+        return ni, nj
 
+    def fish_eye_transormation(self, i, j):
+        pass
 
+    def px(self, i, j, scene):
+        center =  self.bottom_left_pixel_center + i * (self.pixel_size * self.X) + j * (self.pixel_size * self.Y)
+        ray = alg.normalize(center - scene.camera.position)
+        return center,ray
 
-
-
+    def ret_color(self, px, first_intersection, shapes, background_color, lights,scene):
+        shape = first_intersection[2]
+        return shape.material.specular_color if shape is not None else background_color
 
 class Grid:
     def __init__(self, light, n, plane):
@@ -302,7 +354,7 @@ class Grid:
         self.cell_size = self.width / self.num_of_cells
         self.du = self.cell_size * self.axis_U
         self.dv = self.cell_size * self.axis_V
-        self.bottom_left_point = np.array(self.center - 0.5*(self.width*self.axis_U + self.width*self.axis_V))
+        self.bottom_left_point = np.array(self.center - 0.5 * (self.width * self.axis_U + self.width * self.axis_V))
 
     def __str__(self):
         return self.name
@@ -323,3 +375,25 @@ class Scene:
 
     def __repr__(self):
         return 'Class.Scene.' + self.name
+
+
+
+
+
+def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
+    first = INF
+    closest = None
+    hit_point = None
+    # intersections =[]
+    for _, shape_list in shapes_dict.items():
+        for shape in shape_list:
+            point, t, intersect = shape.intersect(lo, ray)
+            if shape != ignore_shape and (
+                    intersect == Intersection.TANGENT or intersect == Intersection.THROUGH) and t < first:
+                first = t
+                hit_point = point
+                closest = shape
+            # if t>0 and t < INF:
+            #     intersections.append((point,shape))
+
+    return (hit_point, first, closest)  # , intersections)
