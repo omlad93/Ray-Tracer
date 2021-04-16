@@ -93,5 +93,6 @@ def main():
     print(f'Ray-Tracer.py has finished:\n\t- creating {out_name} took {process:.2f}s\n\t- saving took {saving:.2f}s')
 
 
+
 if __name__ == '__main__':
     main()
