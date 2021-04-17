@@ -28,11 +28,10 @@ def normalize(vec):
 # finds first intersection of a ray with a shape stored in shaped_dict
 # can be used recursivly for Transperacy & Reflection
 # lo - the source of the ray, ray - normalized ray vector
-def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
+def first_intersection(lo, ray, shapes_dict, ignore_shape=None):
     first = INF
     closest = None
     hit_point = None
-    intersections =[]
     for _, shape_list in shapes_dict.items():
         for shape in shape_list:
             point, t, intersect = shape.intersect(lo, ray)
@@ -41,10 +40,8 @@ def first_intersection(lo, ray, shapes_dict, ignore_shape=None, recursion=0):
                 first = t
                 hit_point = point
                 closest = shape
-            if t>0 and t < INF:
-                intersections.append((point,shape))
 
-    return (hit_point, first, closest, intersections)
+    return (hit_point, first, closest)
 
 
 # finds a root of a 2nd degree equation given a,b coeiffecients and discriminant
@@ -104,7 +101,7 @@ def calc_number_of_hits(light, grid, point, shape, shapes_dict):
             #random_step_size = np.random.uniform(0, grid.cell_size, 2)  # two random semples
             #current_ray_source_position = current_cell_left_point + random_step_size  # check dimensions
             current_cell_ray = normalize(point - current_ray_source_position)
-            (hit_point, first, closest, _) = first_intersection(current_ray_source_position, current_cell_ray, shapes_dict)
+            (hit_point, first, closest) = first_intersection(current_ray_source_position, current_cell_ray, shapes_dict)
             if closest == shape:
                 num_of_hits += 1
     return num_of_hits
@@ -127,14 +124,14 @@ def calc_shape_transparency(point, camera_ray, shape, shapes_dict, shape_color, 
     if shape.material.transparency == 0:
         return shape_color # the shape in not transparent
     else:
-        (hit_point, first, closest, see_troughs) = first_intersection(point, camera_ray, shapes_dict, shape)
+        (hit_point, first, closest) = first_intersection(point, camera_ray, shapes_dict, shape)
         shape_color = shape_color * (1 - shape.material.transparency) + get_stupid_color(hit_point, camera_ray, closest, shapes_dict, background, lights, scene) * shape.material.transparency
         while closest != None:
             if closest.material.transparency == 0:
                 return shape_color
             else:
                 transparency = closest.material.transparency
-                (hit_point, first, closest, see_troughs) = first_intersection(hit_point, camera_ray, shapes_dict, closest)
+                (hit_point, first, closest) = first_intersection(hit_point, camera_ray, shapes_dict, closest)
                 shape_color = shape_color * (1 - transparency) + get_stupid_color(hit_point, camera_ray, closest, shapes_dict,
                                                                                                  background, lights, scene) * transparency
         return shape_color
@@ -148,7 +145,7 @@ def calc_shape_reflection(point, ray, shape, shapes_dict, lights, scene, backgro
         # calculate the reflection ray R
         reflection_ray = ray - 2 * np.dot(ray, shape.get_normal(point)) * shape.get_normal(point)
         # calculate the intersection with the reflection ray
-        (point, first, reflection_shape, _) = first_intersection(point, reflection_ray, shapes_dict, shape)
+        (point, first, reflection_shape) = first_intersection(point, reflection_ray, shapes_dict, shape)
         color = get_stupid_color(point, ray, reflection_shape, shapes_dict, background, lights, scene)
         color = calc_shape_transparency(point, ray, reflection_shape, shapes_dict, color, background, lights, scene)
         return shape.material.reflection_color * (color + calc_shape_reflection(point, reflection_ray, reflection_shape, shapes_dict, lights, scene, background, recursion - 1))
@@ -160,24 +157,29 @@ def calc_shape_reflection(point, ray, shape, shapes_dict, lights, scene, backgro
 #   shape - the shape which the given point is located on
 #   backround - the backround color to return if shape is None
 #   recursion - the recursion level of reflection calculations
-def get_color(point, camera_ray, shape, shapes_dict, background, lights, scene, recursion=0):
-    color = get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, scene)
+def get_color(intesection_result, scene, recursion=0):
+    # if intesection_result is None:
+    #     return np.array([0, 0, 0])
+    shapes_dict = scene.shapes
+    background = scene.general.background_color
+    point, shape, camera_ray = intesection_result[0], intesection_result[2], intesection_result[3]
+    color = get_stupid_color(point, camera_ray, shape, shapes_dict, background, scene)
 
-    return np.clip(calc_shape_transparency(point, camera_ray, shape, shapes_dict, color, background, lights, scene) + \
-           calc_shape_reflection(point, camera_ray, shape, shapes_dict, lights, scene, background, recursion), 0, 1)
+    return np.clip(calc_shape_transparency(point, camera_ray, shape, shapes_dict, color, background, scene.lights, scene) + \
+           calc_shape_reflection(point, camera_ray, shape, shapes_dict, scene.lights, scene, background, recursion), 0, 1)
 
 
-def get_stupid_color(point, camera_ray, shape, shapes_dict, background, lights, scene):
+def get_stupid_color(point, camera_ray, shape, shapes_dict, background, scene):
     color = np.array([0, 0, 0])
     if shape != None:
-        for light in lights:
+        for light in scene.lights:
             i = get_light_intensity(light, point, shape, scene.general.shadow_n, shapes_dict)
             diffuse_intensity = get_diffuse_intensity(shape, point, light, i, background)
             specular_intensity = get_specular_intensity(shape, point, light, i, camera_ray, background)
             color = color + shape.material.diffuse_color * diffuse_intensity + shape.material.specular_color * specular_intensity
         return np.clip(color, 0, 1)
     else:
-        return np.clip(background)
+        return np.clip(background,0,1)
 
 
 # calculates the light intensity of a certain point
@@ -212,3 +214,10 @@ def calc_effective_radius(k, theta, screen_dist):
     else:
         return math.sin(k * theta) * screen_dist / k
 
+def calc_theta(k,radius,screen_dist):
+    if k == 0:
+        return math.radians(radius/screen_dist)
+    elif k<=1 and k>0:
+        return math.radians((1/k)*math.atan(math.radians(k*radius/screen_dist)))
+    else:
+        return  math.radians((1/k)*math.asin(math.radians(k*radius/screen_dist)))
